@@ -16,7 +16,7 @@
 
 package io.delta.storage
 
-import java.io.{FileNotFoundException, IOException}
+import java.io.{BufferedReader, FileNotFoundException, IOException, StringReader, UncheckedIOException}
 
 import scala.collection.JavaConverters._
 
@@ -241,6 +241,107 @@ class RetryableCloseableIteratorSuite extends AnyFunSuite {
   test("throws FileNotFoundException (i.e. not UncheckedIOException) if file not found") {
     intercept[FileNotFoundException] {
       new RetryableCloseableIterator(() => { throw new FileNotFoundException() })
+    }
+  }
+
+  for (maxRetries <- Seq(0, 2, 3)) {
+    test(s"retries wrapped reader failures with maxRetries=$maxRetries") {
+      val closed = scala.collection.mutable.Set.empty[Int]
+      val failures = Seq(50, 30, 20)
+      val errors = scala.collection.mutable.ArrayBuffer.empty[RemoteFileChangedException]
+      var opened = 0
+      val supplier = new ThrowingSupplier[CloseableIterator[String], IOException] {
+        override def get(): CloseableIterator[String] = {
+          val id = opened
+          opened += 1
+          new LineCloseableIterator(new BufferedReader(new StringReader("")) {
+            private var index = 0
+
+            override def readLine(): String = {
+              if (failures.lift(id).contains(index)) {
+                val error = new RemoteFileChangedException("path", "read", s"index $index")
+                errors += error
+                throw error
+              }
+              if (index > 100) {
+                null
+              } else {
+                val line = index.toString
+                index += 1
+                line
+              }
+            }
+
+            override def close(): Unit = {
+              closed += id
+              super.close()
+            }
+          })
+        }
+      }
+      val iterator = new RetryableCloseableIterator(supplier, maxRetries)
+      try {
+        if (maxRetries == 3) {
+          assert(iterator.asScala.toList.map(_.toInt) == (0 to 100).toList)
+        } else {
+          val error = intercept[UncheckedIOException] { iterator.asScala.toList }
+          assert(error.getCause eq errors.head)
+        }
+        assert(iterator.getNumRetries == maxRetries)
+        assert(opened == maxRetries + 1)
+        assert(closed.toSet == (0 until opened).toSet)
+      } finally {
+        iterator.close()
+      }
+    }
+  }
+
+  test("retries wrapped next failures during both reading and replay") {
+    val delegateSupplier = getFailingIterSupplier(0 to 100, Seq(50, 30, 20))
+    val iterator = new RetryableCloseableIterator(() => {
+      val delegate = delegateSupplier.get()
+      new CloseableIterator[String] {
+        override def hasNext: Boolean = delegate.hasNext
+        override def next(): String = {
+          try {
+            delegate.next()
+          } catch {
+            case error: IOException => throw new UncheckedIOException(error)
+          }
+        }
+        override def close(): Unit = delegate.close()
+      }
+    })
+    try {
+      assert(iterator.asScala.toList.map(_.toInt) == (0 to 100).toList)
+      assert(iterator.getNumRetries == 3)
+    } finally {
+      iterator.close()
+    }
+  }
+
+  for (operation <- Seq("hasNext", "next")) {
+    test(s"preserves non-retryable unchecked errors from $operation") {
+      val failure = new UncheckedIOException(new IOException("read failed"))
+      var opened = 0
+      val iterator = new RetryableCloseableIterator(() => {
+        opened += 1
+        new CloseableIterator[String] {
+          override def hasNext: Boolean = {
+            if (operation == "hasNext") throw failure
+            true
+          }
+          override def next(): String = throw failure
+          override def close(): Unit = { }
+        }
+      })
+      try {
+        assert(intercept[UncheckedIOException] { iterator.next() } eq failure)
+        assert(opened == 1)
+        assert(iterator.getNumRetries == 0)
+      } finally {
+        iterator.close()
+      }
     }
   }
 

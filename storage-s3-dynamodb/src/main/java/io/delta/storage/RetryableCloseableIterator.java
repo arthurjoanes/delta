@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.NoSuchElementException;
 import java.util.Objects;
-import java.util.function.Supplier;
 
 import io.delta.storage.utils.ThrowingSupplier;
 import org.slf4j.Logger;
@@ -142,14 +141,28 @@ public class RetryableCloseableIterator implements CloseableIterator<String> {
     // Helper Methods //
     ////////////////////
 
-    /** Throw a checked exception so we can catch this in the caller. */
+    /** Unwrap retryable reader failures so the caller can replay the iterator. */
     private boolean hasNextInternal() throws IOException {
-        return currentIter.hasNext();
+        try {
+            return currentIter.hasNext();
+        } catch (UncheckedIOException ex) {
+            if (isRemoteFileChangedException(ex.getCause())) {
+                throw ex.getCause();
+            }
+            throw ex;
+        }
     }
 
     /** Throw a checked exception so we can catch this in the caller. */
     private String nextInternal() throws IOException {
-        return currentIter.next();
+        try {
+            return currentIter.next();
+        } catch (UncheckedIOException ex) {
+            if (isRemoteFileChangedException(ex.getCause())) {
+                throw ex.getCause();
+            }
+            throw ex;
+        }
     }
 
     /**
@@ -178,8 +191,8 @@ public class RetryableCloseableIterator implements CloseableIterator<String> {
             int replayIndex = -1;
             try {
                 while (replayIndex < lastSuccessfullIndex) {
-                    if (currentIter.hasNext()) {
-                        currentIter.next(); // Disregard data that has been read
+                    if (hasNextInternal()) {
+                        nextInternal(); // Disregard data that has been read
                         replayIndex++;
                     } else {
                         throw new IllegalStateException(
@@ -192,13 +205,6 @@ public class RetryableCloseableIterator implements CloseableIterator<String> {
                         );
                     }
                 }
-
-                // Just like how in RetryableCloseableIterator::next we have to handle
-                // RemoteFileChangedException, we must also hadnle that here during the replay.
-                // `currentIter.next()` isn't declared to throw a RemoteFileChangedException, so we
-                // trick the compiler into thinking this block can throw RemoteFileChangedException
-                // via `fakeIOException`. That way, we can catch it, and retry replaying the iter.
-                fakeIOException();
 
                 LOG.info("Successfully replayed until (inclusive) index {}", lastSuccessfullIndex);
 
@@ -223,9 +229,4 @@ public class RetryableCloseableIterator implements CloseableIterator<String> {
         return exClassName.endsWith("org.apache.hadoop.fs.s3a.RemoteFileChangedException");
     }
 
-    private void fakeIOException() throws IOException {
-        if (false) {
-            throw new IOException();
-        }
-    }
 }
