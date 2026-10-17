@@ -1,9 +1,9 @@
   name: "Unidoc"
   on:
     push:
-      branches: [master, branch-*]
+      branches: [main, master, branch-*]
     pull_request:
-      branches: [master, branch-*]
+      branches: [main, master, branch-*]
   jobs:
     build:
       name: "U: Scala ${{ matrix.scala }}"

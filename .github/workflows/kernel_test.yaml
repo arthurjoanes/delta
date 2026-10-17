@@ -2,12 +2,12 @@ name: "Delta Kernel"
 
 on:
   push:
-    branches: [master, branch-*]
+    branches: [main, master, branch-*]
     paths-ignore:
       - '**.md'
       - '**.txt'
   pull_request:
-    branches: [master, branch-*]
+    branches: [main, master, branch-*]
     paths-ignore:
       - '**.md'
       - '**.txt'
@@ -78,7 +78,7 @@ jobs:
         run: |
           python run-tests.py --group kernel --coverage --shard ${{ matrix.shard }}
       - name: Save SBT cache
-        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
         uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: |
