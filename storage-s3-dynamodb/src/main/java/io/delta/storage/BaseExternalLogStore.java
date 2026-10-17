@@ -185,7 +185,10 @@ public abstract class BaseExternalLogStore extends HadoopFileSystemLogStore {
             // Also note that this lock path (resolvedPath) is for N.json, while the lock path used
             // below in the recovery `fixDeltaLog` path is for N-1.json. Thus, no deadlock.
             pathLock.acquire(resolvedPath);
-
+        } catch (java.lang.InterruptedException e) {
+            throw new InterruptedIOException(e.getMessage());
+        }
+        try {
             if (overwrite) {
                 writeActions(fs, path, actions);
                 return;
@@ -263,8 +266,6 @@ public abstract class BaseExternalLogStore extends HadoopFileSystemLogStore {
                     "{}: ignoring recoverable error", e.getClass().getSimpleName(), e
                 );
             }
-        } catch (java.lang.InterruptedException e) {
-            throw new InterruptedIOException(e.getMessage());
         } finally {
             pathLock.release(resolvedPath);
         }
@@ -394,7 +395,10 @@ public abstract class BaseExternalLogStore extends HadoopFileSystemLogStore {
         final Path targetPath = entry.absoluteFilePath();
         try {
             pathLock.acquire(targetPath);
-
+        } catch (java.lang.InterruptedException e) {
+            throw new InterruptedIOException(e.getMessage());
+        }
+        try {
             int retry = 0;
             boolean copied = false;
             while (true) {
@@ -421,8 +425,6 @@ public abstract class BaseExternalLogStore extends HadoopFileSystemLogStore {
                 }
                 retry += 1;
             }
-        } catch (java.lang.InterruptedException e) {
-            throw new InterruptedIOException(e.getMessage());
         } finally {
             pathLock.release(targetPath);
         }

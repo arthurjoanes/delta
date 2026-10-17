@@ -158,6 +158,10 @@ public class S3SingleDriverLogStore extends HadoopFileSystemLogStore {
         final Path resolvedPath = resolvePath(fs, path);
         try {
             pathLock.acquire(resolvedPath);
+        } catch (java.lang.InterruptedException e) {
+            throw new InterruptedIOException(e.getMessage());
+        }
+        try {
             try {
                 if (fs.exists(resolvedPath) && !overwrite) {
                     throw new java.nio.file.FileAlreadyExistsException(
@@ -176,8 +180,6 @@ public class S3SingleDriverLogStore extends HadoopFileSystemLogStore {
                 // Convert Hadoop's FileAlreadyExistsException to Java's FileAlreadyExistsException
                 throw new java.nio.file.FileAlreadyExistsException(e.getMessage());
             }
-        } catch (java.lang.InterruptedException e) {
-            throw new InterruptedIOException(e.getMessage());
         } finally {
             pathLock.release(resolvedPath);
         }
