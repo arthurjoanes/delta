@@ -1,3 +1,19 @@
+/*
+ * Copyright (2026) The Delta Lake Project Authors.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package io.delta.storage
 
 import java.io.{FileNotFoundException, IOException}
@@ -225,6 +241,44 @@ class RetryableCloseableIteratorSuite extends AnyFunSuite {
   test("throws FileNotFoundException (i.e. not UncheckedIOException) if file not found") {
     intercept[FileNotFoundException] {
       new RetryableCloseableIterator(() => { throw new FileNotFoundException() })
+    }
+  }
+
+  for (maxRetries <- Seq(2, 3)) {
+    test(s"closes failed replay iterators with maxRetries=$maxRetries") {
+      val closed = scala.collection.mutable.ArrayBuffer.empty[Int]
+      var opened = 0
+      val supplier = new ThrowingSupplier[CloseableIterator[String], IOException] {
+        override def get(): CloseableIterator[String] = {
+          val id = opened
+          opened += 1
+          val delegate = getIter(0 to 100, Seq(50, 30, 20).lift(id))
+          new CloseableIterator[String] {
+            override def hasNext: Boolean = delegate.hasNext
+            override def next(): String = delegate.next()
+            override def close(): Unit = {
+              closed += id
+              delegate.close()
+            }
+          }
+        }
+      }
+      val iterator = new RetryableCloseableIterator(supplier, maxRetries)
+
+      try {
+        if (maxRetries == 3) {
+          assert(iterator.asScala.toList.map(_.toInt) == (0 to 100).toList)
+        } else {
+          val error = intercept[java.io.UncheckedIOException] {
+            iterator.asScala.toList
+          }
+          assert(error.getCause.isInstanceOf[RemoteFileChangedException])
+        }
+        assert(closed.toSet == Set(0, 1, 2))
+      } finally {
+        iterator.close()
+      }
+      assert(closed.toSet == (0 until opened).toSet)
     }
   }
 

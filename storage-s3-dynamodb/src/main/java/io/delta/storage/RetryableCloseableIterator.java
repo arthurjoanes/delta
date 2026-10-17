@@ -205,6 +205,7 @@ public class RetryableCloseableIterator implements CloseableIterator<String> {
                 return;
             } catch (IOException ex) {
                 if (isRemoteFileChangedException(ex)) {
+                    currentIter.close();
                     // Ignore and try replaying the iter again at the top of the while loop
                     LOG.warn("Caught a RemoteFileChangedException while replaying the iterator");
                 } else {
