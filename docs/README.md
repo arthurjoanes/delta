@@ -6,7 +6,7 @@ This directory contains scripts to generate docs for https://docs.delta.io, incl
 
 ### Install Node environment
 
-Install node v22.14.0 using [nvm](https://github.com/nvm-sh/nvm):
+Install Node.js v22.18.0, as specified in `.nvmrc` and `package.json`, using [nvm](https://github.com/nvm-sh/nvm):
 
 ```
 nvm install
@@ -35,7 +35,7 @@ Then, follow [Create Environment From Environment file](https://docs.conda.io/pr
 # Note the `--file` argument should be a fully qualified path. Using `~` in file
 # path doesn't work. Example valid path: `/Users/macuser/delta/docs/environment.yml`
 
-conda env create --name delta_docs --file=<absolute_path_to_delta_repo>/docs/environment.yml`
+conda env create --name delta_docs --file=<absolute_path_to_delta_repo>/docs/environment.yml
 ```
 
 ### JDK Setup
@@ -73,7 +73,7 @@ python3 docs/generate_docs.py --livehtml
 
 To build the docs for production, run the following command:
 
-```python
+```bash
 python3 docs/generate_docs.py --api-docs
 ```
 
