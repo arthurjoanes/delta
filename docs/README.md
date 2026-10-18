@@ -1,8 +1,8 @@
-# Docs Generation Scripts
+# Documentation scripts
 
-This directory contains scripts to generate docs for https://docs.delta.io, including the API Docs for Scala, Java, and Python APIs.
+This directory contains scripts to build https://docs.delta.io and the Scala, Java, and Python API references.
 
-## Setup Environment
+## Set up the environment
 
 ### Install Node environment
 
@@ -19,7 +19,7 @@ npm install --global corepack@latest
 corepack enable pnpm
 ```
 
-Finally, install dependencies:
+Install dependencies:
 
 ```
 pnpm i
@@ -29,7 +29,7 @@ pnpm i
 
 Follow [Conda Download](https://www.anaconda.com/download/) to install Anaconda.
 
-Then, follow [Create Environment From Environment file](https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html#create-env-from-file) to create a Conda environment from `/delta/docs/environment.yml` and activate the newly created `delta_docs` environment.
+Create the `delta_docs` environment from `docs/environment.yml`, then activate it. See [Conda's environment guide](https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html#create-env-from-file) for activation instructions.
 
 ```
 # Note the `--file` argument should be a fully qualified path. Using `~` in file
@@ -40,11 +40,11 @@ conda env create --name delta_docs --file=<absolute_path_to_delta_repo>/docs/env
 
 ### JDK Setup
 
-API doc generation needs JDK 1.8. Make sure to setup `JAVA_HOME` that points to JDK 1.8.
+API reference generation requires JDK 1.8. Set `JAVA_HOME` to its installation directory.
 
 ### Set the Delta Lake version
 
-Set the version of Delta Lake release these docs are being generated for.
+Set the Delta Lake release version to document:
 
 ```
 export _DELTA_LAKE_RELEASE_VERSION_=3.3.0
@@ -58,12 +58,11 @@ Run the command from the `delta` repo root directory:
 python3 docs/generate_docs.py --livehtml --api-docs
 ```
 
-Above command will print a URL to preview the docs.
+The command prints a URL for the local preview.
 
 ### Skip generating API docs
 
-Above command generates API docs which take time. If you are just interested in the docs
-that go on https://docs.delta.io, use the following command.
+For a faster preview without generating the API references, run:
 
 ```
 python3 docs/generate_docs.py --livehtml
@@ -71,17 +70,17 @@ python3 docs/generate_docs.py --livehtml
 
 ### Building for production
 
-To build the docs for production, run the following command:
+Build the documentation files:
 
 ```bash
 python3 docs/generate_docs.py --api-docs
 ```
 
-The resulting files will be found in `docs/dist`.
+The output is written to `docs/dist`.
 
 ### Additional docs site commands
 
-The docs site is built on [Astro](https://astro.build/). Using pnpm, you can run a variety of commands:
+The site uses [Astro](https://astro.build/). Run these commands from `docs`:
 
 | Command               | Description                                     |
 | --------------------- | ----------------------------------------------- |
